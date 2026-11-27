@@ -33,6 +33,27 @@ export const HERO_BONDS = [
     desc: 'Donald Knuth + Alan Turing 同阵：全队暴击 +8%、暴伤 +20%',
     requiredIds: ['ssr_knuth', 'ssr_turing'],
     bonuses: { critBonus: 0.08, critDmgBonus: 0.20 }
+  },
+  {
+    id: 'bond_c_unix',
+    name: 'C 与 Unix 双壁',
+    desc: 'Ken Thompson + Dennis Ritchie 同阵：全队防御 +14%、暴伤 +18%',
+    requiredIds: ['ssr_thompson', 'red_dennis'],
+    bonuses: { defBonus: 0.14, critDmgBonus: 0.18 }
+  },
+  {
+    id: 'bond_zero_trust',
+    name: '密码学黄金盾',
+    desc: 'Whitfield Diffie + Bruce Schneier 同阵：全队生命 +14%、攻击 +12%',
+    requiredIds: ['ur_diffie', 'gd_schneier'],
+    bonuses: { hpBonus: 0.14, atkBonus: 0.12 }
+  },
+  {
+    id: 'bond_web_frontier',
+    name: 'Web 与视界先驱',
+    desc: 'Tim Berners-Lee + John Carmack 同阵：全队速度 +12%、暴击 +8%',
+    requiredIds: ['pt_berners_lee', 'ur_carmack'],
+    bonuses: { spdBonus: 0.12, critBonus: 0.08 }
   }
 ];
 
@@ -90,7 +111,10 @@ export function normalizeHeroInstance(inst = {}) {
       sys: clamp(db.sys, 0, MAX_DOMAIN_BONUS),
       eng: clamp(db.eng, 0, MAX_DOMAIN_BONUS),
       ai: clamp(db.ai, 0, MAX_DOMAIN_BONUS),
-      agility: clamp(db.agility, 0, MAX_DOMAIN_BONUS)
+      agility: clamp(db.agility, 0, MAX_DOMAIN_BONUS),
+      sec: clamp(db.sec, 0, MAX_DOMAIN_BONUS),
+      fe: clamp(db.fe, 0, MAX_DOMAIN_BONUS),
+      lang: clamp(db.lang, 0, MAX_DOMAIN_BONUS)
     },
     compileLevel,
     compileProfile,
@@ -111,13 +135,16 @@ export function computeHeroStats(heroDef, instance, equippedEquips = [], equippe
   const lvScale = 1 + (lv - 1) * 0.12 + Math.pow(lv - 1, 1.35) * 0.018;
   const starScale = 1 + (st - 1) * 0.18;
 
-  const baseDomains = heroDef.domains || { algo: 5, sys: 5, eng: 5, ai: 5, agility: 5 };
+  const baseDomains = heroDef.domains || { algo: 5, sys: 5, eng: 5, ai: 5, agility: 5, sec: 5, fe: 5, lang: 5 };
   const effectiveDomains = {
     algo: Math.min(15, (baseDomains.algo ?? 5) + norm.domainsBonus.algo),
     sys: Math.min(15, (baseDomains.sys ?? 5) + norm.domainsBonus.sys),
     eng: Math.min(15, (baseDomains.eng ?? 5) + norm.domainsBonus.eng),
     ai: Math.min(15, (baseDomains.ai ?? 5) + norm.domainsBonus.ai),
-    agility: Math.min(15, (baseDomains.agility ?? 5) + norm.domainsBonus.agility)
+    agility: Math.min(15, (baseDomains.agility ?? 5) + norm.domainsBonus.agility),
+    sec: Math.min(15, (baseDomains.sec ?? 5) + norm.domainsBonus.sec),
+    fe: Math.min(15, (baseDomains.fe ?? 5) + norm.domainsBonus.fe),
+    lang: Math.min(15, (baseDomains.lang ?? 5) + norm.domainsBonus.lang)
   };
   const hasDomainTraining = Object.values(norm.domainsBonus).some((v) => v > 0);
   const derived = hasDomainTraining ? deriveBaseStats(effectiveDomains, heroDef.rarity) : heroDef;
@@ -240,7 +267,7 @@ export function computeHeroStats(heroDef, instance, equippedEquips = [], equippe
   initRageBonus += pb.initRage || 0;
 
   // 2. Core CS modules
-  let armorPen = 0;
+  let armorPen = derived.domainArmorPen || 0;
   let rageGainPct = 0;
   let shieldMultPct = 0;
   let ccResist = 0;

@@ -2,7 +2,7 @@ import { ELEMENTS } from './constants.mjs';
 import { computeHeroStats, computeTeamSynergy } from './stats.mjs';
 
 function getElementMultiplier(attackerEl, defenderEl) {
-  if (attackerEl === 'ai') return { mult: 1.10, advantage: true };
+  if (attackerEl === 'ai' && defenderEl !== 'ai') return { mult: 1.10, advantage: true };
   if (ELEMENTS[attackerEl]?.beats === defenderEl) return { mult: 1.20, advantage: true };
   if (ELEMENTS[defenderEl]?.beats === attackerEl) return { mult: 0.85, advantage: false };
   return { mult: 1.0, advantage: false };

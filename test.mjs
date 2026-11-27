@@ -6,6 +6,8 @@ import path from 'node:path';
 process.env.NO_AUTO_START = '1';
 
 const {
+  CS_DOMAINS,
+  ELEMENTS,
   EQUIP_SETS,
   HEROES,
   HERO_MAP,
@@ -24,9 +26,18 @@ const {
 } = await import('./game-data.mjs');
 const { startServer } = await import('./server.mjs');
 
-// 1. Unit tests: 9 rarities, CS domain derivation, Linus & Jeff Dean, bonds, dodge/block/critDmg
+// 1. Unit tests: 9 rarities, 7 elements (double-triangle), 8 CS domains, bonds, dodge/block/critDmg
 {
-  assert.equal(HEROES.length, 18, 'Expected 18 built-in CS heroes across 9 rarities');
+  assert.equal(HEROES.length, 28, 'Expected 28 built-in CS heroes across 9 rarities and 7 factions');
+  assert.equal(Object.keys(ELEMENTS).length, 7, 'Expected 7 factions (2 triangles + compute)');
+  assert.equal(CS_DOMAINS.length, 8, 'Expected 8 CS radar domains');
+  for (const elId of Object.keys(ELEMENTS)) {
+    assert.ok(HEROES.some((h) => h.element === elId), `Expected at least 1 hero for faction ${elId}`);
+  }
+  assert.equal(HERO_MAP.ssr_hopper.element, 'lang');
+  assert.equal(HERO_MAP.red_dennis.element, 'lang');
+  assert.equal(HERO_MAP.r_qa.element, 'sec');
+  assert.equal(HERO_MAP.r_moyu.element, 'fe');
   assert.equal(Object.keys(EQUIP_SETS).length, 8, 'Expected 8 equip sets');
   const vgTreasures = TREASURE_TEMPLATES.filter((t) => t.rarity === 'violet_gold');
   assert.equal(vgTreasures.length, 6, 'Expected 6 violet_gold treasures');
@@ -207,19 +218,36 @@ try {
   assert.ok(r.json.state.team.includes('ur_linus') && r.json.state.team.includes('ur_jeff'));
   assert.ok(r.json.state.synergy.activeBonds.some((b) => b.id === 'bond_linus_jeff'));
 
-  // Create custom friend card with platinum rarity
+  // Double-triangle element advantage check: sec beats fe
+  const secVsFe = simulateBattle(
+    [{ heroDef: HERO_MAP.gd_schneier, instance: { level: 30, star: 2 } }],
+    [{ heroDef: HERO_MAP.or_css, instance: { level: 30, star: 2 } }],
+    () => 0.50
+  );
+  assert.ok(
+    secVsFe.events.some((e) => e.actorSide === 'ally' && e.targets.some((t) => t.advantage)),
+    'sec should have element advantage against fe'
+  );
+
+  // New bond check: Whitfield Diffie + Bruce Schneier
+  const secBond = computeTeamSynergy([HERO_MAP.ur_diffie, HERO_MAP.gd_schneier]);
+  assert.ok(secBond.activeBonds.some((b) => b.id === 'bond_zero_trust'));
+
+  // Create custom friend card in new faction 'lang' with 8-domain stats
   r = await api('POST', '/api/custom-hero', {
     name: '测试好友·阿伟',
-    title: '线上救火队员',
+    title: '类型体操大师',
     rarity: 'platinum',
-    element: 'kernel',
-    domains: { algo: 8, sys: 9, eng: 10, ai: 6, agility: 8 },
+    element: 'lang',
+    domains: { algo: 8, sys: 9, eng: 10, ai: 6, agility: 8, sec: 7, fe: 6, lang: 10 },
     passiveId: 'git_rollback',
     skillType: 'armor_break',
     skillName: '通宵修复'
   });
   assert.equal(r.status, 200);
   assert.equal(r.json.hero.rarity, 'platinum');
+  assert.equal(r.json.hero.element, 'lang');
+  assert.equal(r.json.hero.domains.lang, 10);
   const customId = r.json.hero.id;
 
   // Put Linus + Jeff + Friend into team
@@ -259,6 +287,8 @@ try {
   assert.equal(r.status, 200);
   r = await api('POST', '/api/hero/compile-profile', { heroId: targetId, profile: 'low_latency' });
   assert.equal(r.status, 200);
+  const afterLowLat = r.json.state.heroes.find((h) => h.id === targetId);
+  assert.ok(40 + afterLowLat.stats.initRageBonus >= 100, 'low_latency should grant full starting rage');
   r = await api('POST', '/api/hero/module-up', { heroId: targetId, moduleId: 'complexity' });
   assert.equal(r.status, 200);
   r = await api('POST', '/api/hero/coverage-up', { heroId: targetId });

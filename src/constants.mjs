@@ -2,6 +2,9 @@ export const ELEMENTS = {
   kernel: { id: 'kernel', name: '内核', color: '#D94F3D', bg: '#FDF1EF', beats: 'algo' },
   algo: { id: 'algo', name: '算法', color: '#2F8F7B', bg: '#EEF8F5', beats: 'arch' },
   arch: { id: 'arch', name: '架构', color: '#2F6FB0', bg: '#EFF5FC', beats: 'kernel' },
+  sec: { id: 'sec', name: '安全', color: '#0F766E', bg: '#ECFDF5', beats: 'fe' },
+  fe: { id: 'fe', name: '前端', color: '#7C3AED', bg: '#F5F3FF', beats: 'lang' },
+  lang: { id: 'lang', name: '语言', color: '#B45309', bg: '#FEF3C7', beats: 'sec' },
   ai: { id: 'ai', name: '算力', color: '#C98A2C', bg: '#FCF6EA', beats: 'all' }
 };
 
@@ -10,7 +13,10 @@ export const CS_DOMAINS = [
   { key: 'sys', name: '底层', hint: '提升防御、格挡率与格挡减伤' },
   { key: 'eng', name: '工程', hint: '提升生命值与护盾/治疗基数' },
   { key: 'ai', name: '炼丹', hint: '提升终结技倍率与初始怒气' },
-  { key: 'agility', name: '速通', hint: '提升行动速度与闪避率' }
+  { key: 'agility', name: '速通', hint: '提升行动速度与闪避率' },
+  { key: 'sec', name: '攻防', hint: '提升防御、格挡减伤与防御穿透' },
+  { key: 'fe', name: '交互', hint: '提升生命值、行动速度与闪避率' },
+  { key: 'lang', name: '语义', hint: '提升攻击、暴击率与终结技倍率' }
 ];
 
 export const PASSIVE_DEFS = {
@@ -206,9 +212,9 @@ export const COMPILE_PROFILES = {
     id: 'low_latency',
     flag: '-march=native',
     name: '实时低延迟',
-    desc: '速度 +14%、闪避 +6%、开局怒气 +15（CPU 亲和与实时调度）',
+    desc: '速度 +14%、闪避 +6%、开局满怒气（CPU 亲和与实时调度）',
     minTier: 1,
-    bonuses: { spdPct: 0.14, dodgeRate: 0.06, initRage: 15 }
+    bonuses: { spdPct: 0.14, dodgeRate: 0.06, initRage: 60 }
   },
   hardened: {
     id: 'hardened',

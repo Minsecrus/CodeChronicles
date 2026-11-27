@@ -14,6 +14,9 @@ const ELEMENT_ICON = {
   kernel: 'terminal',
   algo: 'binary',
   arch: 'layers',
+  sec: 'shield-alert',
+  fe: 'monitor',
+  lang: 'braces',
   ai: 'sparkles'
 };
 
@@ -58,15 +61,26 @@ export function renderGearSvg(slot, rarity) {
 
 export function renderRadarSvg(domains, element, baseDomains = null) {
   const meta = store.state?.elements?.[element] || { color: '#3b5bdb' };
-  const keys = ['algo', 'sys', 'eng', 'ai', 'agility'];
-  const labels = ['算法', '底层', '工程', '炼丹', '速通'];
-  const cx = 68;
-  const cy = 64;
-  const maxR = 42;
+  const domainDefs = store.state?.csDomains || [
+    { key: 'algo', name: '算法' },
+    { key: 'sys', name: '底层' },
+    { key: 'eng', name: '工程' },
+    { key: 'ai', name: '炼丹' },
+    { key: 'agility', name: '速通' },
+    { key: 'sec', name: '攻防' },
+    { key: 'fe', name: '交互' },
+    { key: 'lang', name: '语义' }
+  ];
+  const keys = domainDefs.map((d) => d.key);
+  const labels = domainDefs.map((d) => d.name);
+  const count = keys.length;
+  const cx = 78;
+  const cy = 72;
+  const maxR = 44;
   const cap = 15;
 
   const pt = (i, ratio) => {
-    const angle = (-Math.PI / 2) + (i * 2 * Math.PI) / 5;
+    const angle = (-Math.PI / 2) + (i * 2 * Math.PI) / count;
     return [cx + Math.cos(angle) * maxR * ratio, cy + Math.sin(angle) * maxR * ratio];
   };
 
@@ -77,9 +91,9 @@ export function renderRadarSvg(domains, element, baseDomains = null) {
 
   const axes = keys.map((_, i) => {
     const [x, y] = pt(i, 1);
-    const [lx, ly] = pt(i, 1.26);
+    const [lx, ly] = pt(i, 1.28);
     return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
-      <text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="400" fill="var(--muted)">${labels[i]}</text>`;
+      <text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="400" fill="var(--muted)">${labels[i]}</text>`;
   }).join('');
 
   const basePoly = baseDomains
@@ -92,7 +106,7 @@ export function renderRadarSvg(domains, element, baseDomains = null) {
   }).join(' ');
 
   return `
-    <svg width="136" height="128" viewBox="0 0 136 128">
+    <svg width="156" height="144" viewBox="0 0 156 144">
       ${rings}
       ${axes}
       ${basePoly}

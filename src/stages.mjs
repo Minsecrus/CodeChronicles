@@ -29,7 +29,11 @@ export function getStageConfig(stageId) {
   if (!Number.isInteger(id) || id < 13) return null;
 
   const tier = id - 12;
-  const pool = ['ur_linus', 'ur_jeff', 'ssr_knuth', 'ssr_turing', 'ssr_hopper', 'ssr_thompson'];
+  const pool = [
+    'ur_linus', 'ur_jeff', 'ur_carmack', 'ur_diffie',
+    'ssr_knuth', 'ssr_turing', 'pt_graydon', 'pt_berners_lee',
+    'ssr_hopper', 'ssr_thompson', 'gd_schneier', 'gd_martin'
+  ];
   const lv = Math.min(MAX_LEVEL, 70 + tier * 5);
   const st = Math.min(MAX_STAR, 5 + Math.floor(tier / 4));
   const enemies = [0, 1, 2].map((idx) => ({

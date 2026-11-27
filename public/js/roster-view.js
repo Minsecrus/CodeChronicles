@@ -18,6 +18,12 @@ function ensureBuilderOptions() {
   if (builderOptionsReady || !store.state?.csDomains) return;
   builderOptionsReady = true;
 
+  if (store.state.elements) {
+    $('#ch-element').innerHTML = Object.values(store.state.elements)
+      .map((el) => `<option value="${el.id}" ${el.id === 'algo' ? 'selected' : ''}>${el.name}</option>`)
+      .join('');
+  }
+
   const sliderWrap = $('#ch-domains-sliders');
   sliderWrap.innerHTML = store.state.csDomains.map((d) => `
     <label class="domain-slider-item" title="${d.hint}">
@@ -93,13 +99,14 @@ function renderHeroDetail() {
   const domainRows = (gs.csDomains || []).map((d) => {
     const eff = h.domains?.[d.key] ?? 5;
     const bonus = h.domainsBonus?.[d.key] || 0;
+    const base = h.baseDomains?.[d.key] ?? (eff - bonus);
     const cost = h.domainCosts?.[d.key];
     const costTitle = cost ? `研习 +1（需 ${cost.exp} 晶体 / ${cost.gold} 金币）` : '已满阶';
     return `
       <div class="domain-row" title="${d.hint}">
         <span>${d.name}</span>
         <span class="domain-row-right">
-          <strong>${eff}${bonus > 0 ? `<small class="domain-bonus">+${bonus}</small>` : ''}</strong>
+          <strong>${eff}${bonus > 0 ? `<small class="domain-bonus"> (${base}+${bonus})</small>` : ''}</strong>
           <button class="domain-train-btn" data-train-domain="${d.key}" title="${costTitle}" ${!cost ? 'disabled' : ''}>+</button>
         </span>
       </div>
@@ -127,47 +134,51 @@ function renderHeroDetail() {
   const compileTiers = gs.compileTiers || [];
   const curCompile = compileTiers[h.compileLevel || 0] || { flag: '-O0', name: 'Debug 基线', tech: '' };
   const compileCost = h.nextCompileCost
-    ? `${resTag('exp', formatNum(h.nextCompileCost.exp))} ${resTag('gold', formatNum(h.nextCompileCost.gold))}`
-    : 'MAX';
+    ? `<button class="btn btn-primary btn-xs" id="btn-compile-up" title="升级编译优化">${ic('arrow-up', 'ic-sm')}${resTag('exp', formatNum(h.nextCompileCost.exp))} ${resTag('gold', formatNum(h.nextCompileCost.gold))}</button>`
+    : `<span class="badge cleared">已满阶</span>`;
   const profilePillsHtml = Object.values(gs.compileProfiles || {}).map((p) => {
     const locked = (h.compileLevel || 0) < p.minTier;
     const active = (h.compileProfile || 'standard') === p.id;
     return `
-      <button class="profile-pill ${active ? 'active' : ''}" data-compile-profile="${p.id}" ${locked ? 'disabled' : ''} title="${locked ? `需先升级至 -O${p.minTier} 解锁：` : ''}${p.desc}">
-        <span class="profile-flag">${p.flag}</span>
+      <button class="profile-pill ${active ? 'active' : ''}" data-compile-profile="${p.id}" ${locked ? 'disabled' : ''} title="${locked ? `需先升至 -O${p.minTier}：` : ''}${p.flag} · ${p.desc}">
         <span>${p.name}</span>
       </button>
     `;
   }).join('');
 
+  const moduleSummary = (id, lv) => {
+    if (lv <= 0) return '未研习';
+    if (id === 'complexity') return `穿甲 +${lv * 4}% · 攻 +${(lv * 3.5).toFixed(1).replace(/\.0$/, '')}%`;
+    if (id === 'concurrency') return `速 +${lv * 3}${lv >= 5 ? ' · CAS连击' : ` · 回怒 +${lv * 5}%`}`;
+    if (id === 'cache') return `盾效 +${lv * 6}%${lv >= 5 ? ' · L1预取盾' : ` · 血 +${lv * 4}%`}`;
+    if (id === 'consensus') return `抗控 +${lv * 10}%${lv >= 5 ? ' · 熔断锁血' : ` · 挡 +${(lv * 1.5).toFixed(1).replace(/\.0$/, '')}%`}`;
+    return '';
+  };
+
   const modulesHtml = (gs.csModules || []).map((m) => {
     const lv = h.modules?.[m.id] || 0;
     const maxLv = gs.maxCsModuleLevel || 5;
     const mCost = h.moduleCosts?.[m.id];
-    const btnText = mCost
-      ? `+1 ${resTag('exp', formatNum(mCost.exp))} ${resTag('gold', formatNum(mCost.gold))}`
-      : 'MAX';
+    const footAction = mCost
+      ? `<button class="btn btn-outline btn-xs" style="width:100%" data-module-up="${m.id}" title="升级模块">${ic('arrow-up', 'ic-sm')}${resTag('exp', formatNum(mCost.exp))} ${resTag('gold', formatNum(mCost.gold))}</button>`
+      : `<span class="muted" style="font-size:11px">已满级</span>`;
     return `
-      <div class="module-card ${lv >= maxLv ? 'maxed' : ''}">
+      <div class="module-card" title="${m.subtitle}&#10;${m.desc}">
         <div class="module-card-head">
           <strong>${m.name}</strong>
-          <span class="badge ${lv >= maxLv ? 'cleared' : ''}">Lv.${lv}/${maxLv}</span>
+          <span class="muted" style="font-family:var(--font-mono);font-size:11.5px">Lv.${lv}/${maxLv}</span>
         </div>
-        <div class="module-sub">${m.subtitle}</div>
-        <div class="module-desc" title="${m.desc}">${m.desc}</div>
-        <div class="module-foot">
-          <span class="badge ${lv >= maxLv ? 'next' : ''}">${m.maxEffect}</span>
-          <button class="btn btn-outline btn-xs" data-module-up="${m.id}" ${!mCost ? 'disabled' : ''}>${btnText}</button>
-        </div>
+        <div class="module-summary">${moduleSummary(m.id, lv)}</div>
+        <div class="module-foot">${footAction}</div>
       </div>
     `;
   }).join('');
 
   const covTiers = gs.coverageTiers || [];
   const curCov = covTiers[h.coverageTier || 0] || { pct: 0, name: '裸奔上线', desc: '' };
-  const covCost = h.nextCoverageCost
-    ? `提升覆盖 ${resTag('exp', formatNum(h.nextCoverageCost.exp))} ${resTag('gold', formatNum(h.nextCoverageCost.gold))}`
-    : '100% 形式化达成';
+  const covBtn = h.nextCoverageCost
+    ? `<button class="btn btn-outline btn-xs" id="btn-coverage-up" title="提升测试覆盖">${ic('arrow-up', 'ic-sm')}${resTag('exp', formatNum(h.nextCoverageCost.exp))} ${resTag('gold', formatNum(h.nextCoverageCost.gold))}</button>`
+    : `<span class="badge cleared">已达成</span>`;
 
   const equipCount = Object.values(h.equipSlots || {}).filter(Boolean).length;
   const treasureCount = Object.values(h.treasureSlots || {}).filter(Boolean).length;
@@ -200,32 +211,31 @@ function renderHeroDetail() {
       </div>
     `;
   } else if (subTab === 'cultivation') {
+    const maxCompile = Math.max(1, compileTiers.length - 1);
     bodyHtml = `
       <div class="cult-section">
-        <div class="cult-card">
+        <div class="cult-card" title="${curCompile.flag} · ${curCompile.name}：${curCompile.tech}">
           <div class="cult-head">
-            <div>
-              <strong>${ic('terminal', 'ic-sm')} 编译链优化</strong>
-              <span class="badge next" style="margin-left:6px">${curCompile.flag} · ${curCompile.name}</span>
+            <div class="cult-title">
+              <strong>${ic('terminal', 'ic-sm')} 编译优化</strong>
+              <span class="badge ${(h.compileLevel || 0) >= maxCompile ? 'cleared' : 'next'}">Lv.${h.compileLevel || 0}/${maxCompile}</span>
             </div>
-            <button class="btn btn-primary btn-xs" id="btn-compile-up" ${!h.nextCompileCost ? 'disabled' : ''}>${compileCost}</button>
+            ${compileCost}
           </div>
-          <p class="muted" style="margin:6px 0 8px">${curCompile.tech}</p>
-          <div class="profile-grid">${profilePillsHtml}</div>
+          <div class="profile-grid" style="margin-top:9px">${profilePillsHtml}</div>
         </div>
 
         <div class="module-grid">${modulesHtml}</div>
 
-        <div class="cult-card">
+        <div class="cult-card" title="${curCov.desc}">
           <div class="cult-head">
-            <div>
-              <strong>${ic('shield-check', 'ic-sm')} 工程测试覆盖</strong>
-              <span class="badge ${curCov.pct >= 100 ? 'cleared' : ''}" style="margin-left:6px">${curCov.pct}% · ${curCov.name}</span>
+            <div class="cult-title">
+              <strong>${ic('shield-check', 'ic-sm')} 测试覆盖</strong>
+              <span class="badge ${curCov.pct >= 100 ? 'cleared' : ''}">${curCov.pct}% · ${curCov.name}</span>
             </div>
-            <button class="btn btn-outline btn-xs" id="btn-coverage-up" ${!h.nextCoverageCost ? 'disabled' : ''}>${covCost}</button>
+            ${covBtn}
           </div>
-          <div class="progress-track" style="margin:8px 0 6px"><div class="progress-fill sr" style="width:${curCov.pct}%"></div></div>
-          <p class="muted">${curCov.desc}</p>
+          <div class="progress-track" style="margin-top:9px"><div class="progress-fill sr" style="width:${curCov.pct}%"></div></div>
         </div>
       </div>
     `;
@@ -265,7 +275,7 @@ function renderHeroDetail() {
 
     <div class="detail-actions">
       <div class="detail-row-btns">
-        <button class="btn btn-primary" id="btn-lv1" ${!h.nextLvCost ? 'disabled' : ''}>${ic('arrow-up', 'ic-sm')}升级 +1 ${lvCost}</button>
+        <button class="btn btn-primary" id="btn-lv1" ${!h.nextLvCost ? 'disabled' : ''} title="升级 +1">${ic('arrow-up', 'ic-sm')}+1 ${lvCost}</button>
         <button class="btn btn-outline" id="btn-lv10" ${!h.nextLvCost ? 'disabled' : ''}>${ic('chevrons-up', 'ic-sm')}连升 +10</button>
       </div>
       <div class="detail-row-btns">
@@ -457,6 +467,19 @@ export function renderRoster() {
     store.selectedHeroId = gs.heroes[0]?.id || null;
   }
 
+  const filtersEl = $('#roster-filters');
+  if (filtersEl && gs.elements) {
+    const elementPills = Object.values(gs.elements).map((el) => {
+      const beatTarget = el.beats === 'all' ? '全阵营 +10%' : `克制 ${gs.elements[el.beats]?.name || el.beats}`;
+      return `<button class="filter-pill" data-filter="${el.id}" title="${beatTarget}">${el.name}</button>`;
+    }).join('');
+    filtersEl.innerHTML = `
+      <button class="filter-pill" data-filter="all">全部</button>
+      <button class="filter-pill" data-filter="team">出战</button>
+      ${elementPills}
+    `;
+  }
+
   document.querySelectorAll('#roster-filters .filter-pill').forEach((pill) => {
     pill.classList.toggle('active', pill.dataset.filter === store.rosterFilter);
   });
@@ -506,11 +529,11 @@ export function renderRoster() {
 export function initRosterView(onRefresh) {
   onRefreshCb = onRefresh;
 
-  document.querySelectorAll('#roster-filters .filter-pill').forEach((pill) => {
-    pill.addEventListener('click', () => {
-      store.rosterFilter = pill.dataset.filter;
-      renderRoster();
-    });
+  $('#roster-filters').addEventListener('click', (e) => {
+    const pill = e.target.closest('.filter-pill');
+    if (!pill) return;
+    store.rosterFilter = pill.dataset.filter;
+    renderRoster();
   });
 
   $('#btn-open-builder').addEventListener('click', () => {

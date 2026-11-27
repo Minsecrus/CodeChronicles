@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LEGACY_RARITY_MAP, PASSIVE_DEFS, RARITY_ORDER, SKILL_TEMPLATES } from './constants.mjs';
+import { ELEMENTS, LEGACY_RARITY_MAP, PASSIVE_DEFS, RARITY_ORDER, SKILL_TEMPLATES } from './constants.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,27 +27,32 @@ export function normalizeRarity(r, fallback = 'gold') {
 
 export function deriveBaseStats(domains, rarity = 'purple') {
   const normRarity = normalizeRarity(rarity, 'purple');
+  const clampDomain = (v) => Math.max(1, Math.min(15, Number(v ?? 5)));
   const d = {
-    algo: Math.max(1, Math.min(15, Number(domains?.algo ?? 5))),
-    sys: Math.max(1, Math.min(15, Number(domains?.sys ?? 5))),
-    eng: Math.max(1, Math.min(15, Number(domains?.eng ?? 5))),
-    ai: Math.max(1, Math.min(15, Number(domains?.ai ?? 5))),
-    agility: Math.max(1, Math.min(15, Number(domains?.agility ?? 5)))
+    algo: clampDomain(domains?.algo),
+    sys: clampDomain(domains?.sys),
+    eng: clampDomain(domains?.eng),
+    ai: clampDomain(domains?.ai),
+    agility: clampDomain(domains?.agility),
+    sec: clampDomain(domains?.sec),
+    fe: clampDomain(domains?.fe),
+    lang: clampDomain(domains?.lang)
   };
   const scale = RARITY_TIER_SCALE[normRarity] || 1.30;
   const highTier = (RARITY_ORDER[normRarity] || 4) >= RARITY_ORDER.gold;
 
-  const baseHp = Math.round((720 + d.eng * 54 + d.sys * 20) * scale);
-  const baseAtk = Math.round((80 + d.algo * 6.4 + d.ai * 4.4) * scale);
-  const baseDef = Math.round((34 + d.sys * 4.0 + d.eng * 1.7) * scale);
-  const baseSpd = Math.round(86 + d.agility * 3.4 + (scale - 1) * 14);
-  const critRate = Number((0.06 + d.algo * 0.017 + (highTier ? 0.03 : 0)).toFixed(3));
+  const baseHp = Math.round((660 + d.eng * 50 + d.sys * 18 + d.fe * 22) * scale);
+  const baseAtk = Math.round((74 + d.algo * 6.0 + d.ai * 4.2 + d.lang * 2.2) * scale);
+  const baseDef = Math.round((30 + d.sys * 3.8 + d.eng * 1.5 + d.sec * 1.6) * scale);
+  const baseSpd = Math.round(83 + d.agility * 3.1 + d.fe * 1.0 + (scale - 1) * 14);
+  const critRate = Number((0.05 + d.algo * 0.015 + d.lang * 0.005 + (highTier ? 0.03 : 0)).toFixed(3));
   const critDmg = Number((1.44 + d.algo * 0.032 + (highTier ? 0.04 : 0)).toFixed(2));
-  const dodgeRate = Number((0.02 + d.agility * 0.012).toFixed(3));
+  const dodgeRate = Number((0.015 + d.agility * 0.011 + d.fe * 0.004).toFixed(3));
   const blockRate = Number((0.02 + d.sys * 0.015).toFixed(3));
-  const blockMitigation = Number((0.30 + d.sys * 0.014).toFixed(2));
+  const blockMitigation = Number((0.28 + d.sys * 0.013 + d.sec * 0.006).toFixed(2));
+  const domainArmorPen = Number((Math.max(0, d.sec - 5) * 0.012).toFixed(3));
   const domainRageBonus = Math.max(0, Math.round((d.ai - 4) * 3));
-  const domainSkillScale = Number((0.92 + d.ai * 0.022).toFixed(2));
+  const domainSkillScale = Number((0.90 + d.ai * 0.019 + d.lang * 0.008).toFixed(2));
 
   return {
     domains: d,
@@ -60,6 +65,7 @@ export function deriveBaseStats(domains, rarity = 'purple') {
     dodgeRate,
     blockRate,
     blockMitigation,
+    domainArmorPen,
     domainRageBonus,
     domainSkillScale
   };
@@ -78,7 +84,7 @@ function defineHero(cfg) {
 }
 
 export const BUILTIN_HEROES = [
-  // 紫金 (2)
+  // 紫金 (4)
   defineHero({
     id: 'ur_linus',
     name: 'Linus Torvalds',
@@ -86,7 +92,7 @@ export const BUILTIN_HEROES = [
     rarity: 'violet_gold',
     element: 'kernel',
     role: '破盾控场 / 绝境回滚',
-    domains: { algo: 8, sys: 10, eng: 9, ai: 5, agility: 7 },
+    domains: { algo: 8, sys: 10, eng: 9, ai: 5, agility: 7, sec: 5, fe: 4, lang: 6 },
     passiveId: 'code_review',
     emblem: 'sunburst',
     skill: {
@@ -104,7 +110,7 @@ export const BUILTIN_HEROES = [
     rarity: 'violet_gold',
     element: 'ai',
     role: '并发连击 / 全队增幅',
-    domains: { algo: 10, sys: 9, eng: 10, ai: 10, agility: 8 },
+    domains: { algo: 10, sys: 9, eng: 10, ai: 10, agility: 8, sec: 6, fe: 5, lang: 8 },
     passiveId: 'multithread',
     emblem: 'star',
     skill: {
@@ -115,8 +121,44 @@ export const BUILTIN_HEROES = [
       target: 'all_enemies'
     }
   }),
+  defineHero({
+    id: 'ur_carmack',
+    name: 'John Carmack',
+    title: '3D 引擎先知 · 帧率魔术师',
+    rarity: 'violet_gold',
+    element: 'fe',
+    role: '极速剪枝 / 残血收割',
+    domains: { algo: 9, sys: 8, eng: 9, ai: 7, agility: 10, sec: 5, fe: 10, lang: 7 },
+    passiveId: 'prune_execute',
+    emblem: 'blade',
+    skill: {
+      name: '光线追踪终结',
+      desc: '锁定生命最低敌人造成 255% 伤害，目标生命低于 50% 时额外提升 35% 伤害',
+      type: 'crit_execute',
+      multiplier: 2.55,
+      target: 'lowest_hp_enemy'
+    }
+  }),
+  defineHero({
+    id: 'ur_diffie',
+    name: 'Whitfield Diffie',
+    title: '公钥密码学奠基人',
+    rarity: 'violet_gold',
+    element: 'sec',
+    role: '零信任壁垒 / 群体破盾',
+    domains: { algo: 9, sys: 7, eng: 8, ai: 6, agility: 7, sec: 10, fe: 5, lang: 7 },
+    passiveId: 'ha_shield',
+    emblem: 'shield',
+    skill: {
+      name: '非对称密钥壁垒',
+      desc: '为全队施加攻击 100% 护盾，并对敌方全体造成 170% 伤害（目标越残血伤害越高）',
+      type: 'team_shield_aoe_exec',
+      multiplier: 1.70,
+      target: 'all_enemies'
+    }
+  }),
 
-  // 白金 (2)
+  // 白金 (4)
   defineHero({
     id: 'ssr_turing',
     name: 'Alan Turing',
@@ -124,7 +166,7 @@ export const BUILTIN_HEROES = [
     rarity: 'platinum',
     element: 'algo',
     role: '群体阻塞 / 泄漏',
-    domains: { algo: 10, sys: 6, eng: 7, ai: 9, agility: 7 },
+    domains: { algo: 10, sys: 6, eng: 7, ai: 9, agility: 7, sec: 8, fe: 4, lang: 8 },
     passiveId: 'memory_leak',
     emblem: 'diamond',
     skill: {
@@ -142,7 +184,7 @@ export const BUILTIN_HEROES = [
     rarity: 'platinum',
     element: 'algo',
     role: '剪枝收割',
-    domains: { algo: 10, sys: 7, eng: 8, ai: 6, agility: 7 },
+    domains: { algo: 10, sys: 7, eng: 8, ai: 6, agility: 7, sec: 6, fe: 5, lang: 9 },
     passiveId: 'prune_execute',
     emblem: 'blade',
     skill: {
@@ -153,8 +195,44 @@ export const BUILTIN_HEROES = [
       target: 'lowest_hp_enemy'
     }
   }),
+  defineHero({
+    id: 'pt_graydon',
+    name: 'Graydon Hoare',
+    title: 'Rust 之父 · 借用检查器',
+    rarity: 'platinum',
+    element: 'lang',
+    role: '内存铁壁 / 语义裁决',
+    domains: { algo: 8, sys: 9, eng: 9, ai: 5, agility: 6, sec: 9, fe: 5, lang: 10 },
+    passiveId: 'ha_shield',
+    emblem: 'monolith',
+    skill: {
+      name: '所有权零开销重铸',
+      desc: '为自身施加 30% 最大生命护盾并对敌方全体造成 140% 伤害',
+      type: 'fortress_slam',
+      multiplier: 1.40,
+      target: 'all_enemies'
+    }
+  }),
+  defineHero({
+    id: 'pt_berners_lee',
+    name: 'Tim Berners-Lee',
+    title: '万维网之父 · HTTP 缔造者',
+    rarity: 'platinum',
+    element: 'fe',
+    role: '全队愈护 / 并发回怒',
+    domains: { algo: 7, sys: 6, eng: 9, ai: 6, agility: 8, sec: 7, fe: 10, lang: 8 },
+    passiveId: 'multithread',
+    emblem: 'wave',
+    skill: {
+      name: '超文本互联矩阵',
+      desc: '为全体友方恢复攻击 145% 生命，并施加 40% 攻击的护盾',
+      type: 'team_heal_shield',
+      multiplier: 1.45,
+      target: 'all_allies'
+    }
+  }),
 
-  // 金 (2)
+  // 金 (4)
   defineHero({
     id: 'ssr_thompson',
     name: 'Ken Thompson',
@@ -162,7 +240,7 @@ export const BUILTIN_HEROES = [
     rarity: 'gold',
     element: 'kernel',
     role: '重装格挡 / 回滚',
-    domains: { algo: 7, sys: 10, eng: 9, ai: 4, agility: 5 },
+    domains: { algo: 7, sys: 10, eng: 9, ai: 4, agility: 5, sec: 7, fe: 4, lang: 8 },
     passiveId: 'git_rollback',
     emblem: 'monolith',
     skill: {
@@ -176,11 +254,11 @@ export const BUILTIN_HEROES = [
   defineHero({
     id: 'ssr_hopper',
     name: 'Grace Hopper',
-    title: '编译器之母',
+    title: '编译器之母 · COBOL 先驱',
     rarity: 'gold',
-    element: 'arch',
+    element: 'lang',
     role: '群疗净护',
-    domains: { algo: 7, sys: 8, eng: 10, ai: 6, agility: 7 },
+    domains: { algo: 7, sys: 8, eng: 9, ai: 6, agility: 7, sec: 6, fe: 5, lang: 10 },
     passiveId: 'ha_shield',
     emblem: 'wave',
     skill: {
@@ -191,16 +269,52 @@ export const BUILTIN_HEROES = [
       target: 'all_allies'
     }
   }),
+  defineHero({
+    id: 'gd_schneier',
+    name: 'Bruce Schneier',
+    title: '应用密码学宗师',
+    rarity: 'gold',
+    element: 'sec',
+    role: '破盾穿甲 / 渗透审计',
+    domains: { algo: 8, sys: 7, eng: 7, ai: 5, agility: 6, sec: 10, fe: 5, lang: 6 },
+    passiveId: 'code_review',
+    emblem: 'shield',
+    skill: {
+      name: '零信任渗透审计',
+      desc: '对单体造成 220% 伤害并降低目标 30% 防御 2 回合',
+      type: 'armor_break',
+      multiplier: 2.20,
+      target: 'single_enemy'
+    }
+  }),
+  defineHero({
+    id: 'gd_martin',
+    name: 'Martin Fowler',
+    title: '重构与企业架构大师',
+    rarity: 'gold',
+    element: 'arch',
+    role: '全队增攻 / 架构回滚',
+    domains: { algo: 6, sys: 6, eng: 10, ai: 5, agility: 7, sec: 6, fe: 7, lang: 8 },
+    passiveId: 'git_rollback',
+    emblem: 'rings',
+    skill: {
+      name: '领域驱动重构',
+      desc: '提升全队 22% 攻击 2 回合，并对敌方单体造成 175% 伤害',
+      type: 'team_atk_buff',
+      multiplier: 1.75,
+      target: 'single_enemy'
+    }
+  }),
 
-  // 红 (2)
+  // 红 (3)
   defineHero({
     id: 'red_dennis',
     name: 'Dennis Ritchie',
     title: 'C 语言之父',
     rarity: 'red',
-    element: 'kernel',
+    element: 'lang',
     role: '破甲直击',
-    domains: { algo: 8, sys: 10, eng: 9, ai: 4, agility: 6 },
+    domains: { algo: 8, sys: 10, eng: 8, ai: 4, agility: 6, sec: 6, fe: 4, lang: 10 },
     passiveId: 'code_review',
     emblem: 'monolith',
     skill: {
@@ -218,7 +332,7 @@ export const BUILTIN_HEROES = [
     rarity: 'red',
     element: 'algo',
     role: '剪枝控场',
-    domains: { algo: 10, sys: 7, eng: 8, ai: 5, agility: 7 },
+    domains: { algo: 10, sys: 7, eng: 8, ai: 5, agility: 7, sec: 6, fe: 4, lang: 8 },
     passiveId: 'prune_execute',
     emblem: 'diamond',
     skill: {
@@ -229,8 +343,26 @@ export const BUILTIN_HEROES = [
       target: 'all_enemies'
     }
   }),
+  defineHero({
+    id: 'rd_mccarthy',
+    name: 'John McCarthy',
+    title: 'Lisp 之父 · 函数式鼻祖',
+    rarity: 'red',
+    element: 'lang',
+    role: '群体灼烧 / 阻塞',
+    domains: { algo: 9, sys: 6, eng: 7, ai: 8, agility: 6, sec: 5, fe: 5, lang: 10 },
+    passiveId: 'memory_leak',
+    emblem: 'sunburst',
+    skill: {
+      name: 'S-表达式递归',
+      desc: '对敌方全体造成 170% 伤害与 2 回合灼烧，40% 概率令主目标陷入「阻塞」1 回合',
+      type: 'aoe_stun_burn',
+      multiplier: 1.70,
+      target: 'all_enemies'
+    }
+  }),
 
-  // 橙 (2)
+  // 橙 (3)
   defineHero({
     id: 'sr_arch',
     name: '全栈架构师',
@@ -238,7 +370,7 @@ export const BUILTIN_HEROES = [
     rarity: 'orange',
     element: 'arch',
     role: '破甲输出',
-    domains: { algo: 6, sys: 6, eng: 8, ai: 5, agility: 6 },
+    domains: { algo: 6, sys: 6, eng: 8, ai: 5, agility: 6, sec: 7, fe: 6, lang: 6 },
     passiveId: 'ha_shield',
     emblem: 'flame',
     skill: {
@@ -256,7 +388,7 @@ export const BUILTIN_HEROES = [
     rarity: 'orange',
     element: 'ai',
     role: '算力鼓舞',
-    domains: { algo: 6, sys: 4, eng: 6, ai: 9, agility: 6 },
+    domains: { algo: 6, sys: 4, eng: 6, ai: 9, agility: 6, sec: 4, fe: 4, lang: 5 },
     passiveId: 'memory_leak',
     emblem: 'rings',
     skill: {
@@ -267,8 +399,26 @@ export const BUILTIN_HEROES = [
       target: 'single_enemy'
     }
   }),
+  defineHero({
+    id: 'or_css',
+    name: 'CSS 调参魔导师',
+    title: '像素级对齐狂魔',
+    rarity: 'orange',
+    element: 'fe',
+    role: '高闪避群攻',
+    domains: { algo: 5, sys: 3, eng: 6, ai: 4, agility: 8, sec: 4, fe: 9, lang: 6 },
+    passiveId: 'async_dodge',
+    emblem: 'feather',
+    skill: {
+      name: 'Flexbox 绝对居中',
+      desc: '对敌方全体造成 140% 伤害',
+      type: 'aoe_dmg',
+      multiplier: 1.40,
+      target: 'all_enemies'
+    }
+  }),
 
-  // 紫 (2)
+  // 紫 (4)
   defineHero({
     id: 'sr_algor',
     name: '竞赛金牌手',
@@ -276,7 +426,7 @@ export const BUILTIN_HEROES = [
     rarity: 'purple',
     element: 'algo',
     role: '并发收割',
-    domains: { algo: 9, sys: 4, eng: 5, ai: 5, agility: 8 },
+    domains: { algo: 9, sys: 4, eng: 5, ai: 5, agility: 8, sec: 4, fe: 4, lang: 6 },
     passiveId: 'multithread',
     emblem: 'crescent',
     skill: {
@@ -294,7 +444,7 @@ export const BUILTIN_HEROES = [
     rarity: 'purple',
     element: 'kernel',
     role: '横扫破盾',
-    domains: { algo: 6, sys: 9, eng: 7, ai: 4, agility: 5 },
+    domains: { algo: 6, sys: 9, eng: 7, ai: 4, agility: 5, sec: 7, fe: 3, lang: 6 },
     passiveId: 'code_review',
     emblem: 'scythe',
     skill: {
@@ -303,6 +453,42 @@ export const BUILTIN_HEROES = [
       type: 'aoe_dmg',
       multiplier: 1.35,
       target: 'all_enemies'
+    }
+  }),
+  defineHero({
+    id: 'pr_pentest',
+    name: '红队白帽黑客',
+    title: '0day 挖掘机',
+    rarity: 'purple',
+    element: 'sec',
+    role: '残血穿甲',
+    domains: { algo: 6, sys: 7, eng: 5, ai: 4, agility: 7, sec: 9, fe: 5, lang: 5 },
+    passiveId: 'prune_execute',
+    emblem: 'scythe',
+    skill: {
+      name: 'SQL 注入穿甲斩',
+      desc: '对单体造成 205% 伤害并附带 2 回合破甲（防御 -30%）',
+      type: 'armor_break',
+      multiplier: 2.05,
+      target: 'single_enemy'
+    }
+  }),
+  defineHero({
+    id: 'pr_ts',
+    name: '类型体操宗师',
+    title: '泛型套娃终结者',
+    rarity: 'purple',
+    element: 'lang',
+    role: '狂暴吸血',
+    domains: { algo: 7, sys: 4, eng: 6, ai: 4, agility: 6, sec: 5, fe: 7, lang: 9 },
+    passiveId: 'ddl_berserk',
+    emblem: 'crescent',
+    skill: {
+      name: '协变逆变裁决',
+      desc: '对单体造成 195% 伤害，并将 45% 伤害转化为自身生命',
+      type: 'lifesteal',
+      multiplier: 1.95,
+      target: 'single_enemy'
     }
   }),
 
@@ -314,7 +500,7 @@ export const BUILTIN_HEROES = [
     rarity: 'blue',
     element: 'arch',
     role: '紧急治疗',
-    domains: { algo: 4, sys: 7, eng: 8, ai: 4, agility: 6 },
+    domains: { algo: 4, sys: 7, eng: 8, ai: 4, agility: 6, sec: 7, fe: 4, lang: 4 },
     passiveId: 'git_rollback',
     emblem: 'droplet',
     skill: {
@@ -332,7 +518,7 @@ export const BUILTIN_HEROES = [
     rarity: 'blue',
     element: 'kernel',
     role: '残血狂暴',
-    domains: { algo: 6, sys: 5, eng: 5, ai: 5, agility: 6 },
+    domains: { algo: 6, sys: 5, eng: 5, ai: 5, agility: 6, sec: 4, fe: 5, lang: 5 },
     passiveId: 'ddl_berserk',
     emblem: 'shield',
     skill: {
@@ -348,11 +534,11 @@ export const BUILTIN_HEROES = [
   defineHero({
     id: 'r_moyu',
     name: '摸鱼小能手',
-    title: '带薪拉屎专家',
+    title: '异步摸鱼 · 防抖节流',
     rarity: 'green',
-    element: 'algo',
+    element: 'fe',
     role: '高闪避敏捷',
-    domains: { algo: 5, sys: 3, eng: 4, ai: 4, agility: 9 },
+    domains: { algo: 5, sys: 3, eng: 4, ai: 4, agility: 9, sec: 4, fe: 8, lang: 5 },
     passiveId: 'async_dodge',
     emblem: 'feather',
     skill: {
@@ -366,11 +552,11 @@ export const BUILTIN_HEROES = [
   defineHero({
     id: 'r_qa',
     name: '测试小哥',
-    title: 'Bug 捕获者',
+    title: '漏洞捕手 · 边界审计',
     rarity: 'green',
-    element: 'arch',
+    element: 'sec',
     role: '单体治疗',
-    domains: { algo: 4, sys: 5, eng: 6, ai: 3, agility: 5 },
+    domains: { algo: 4, sys: 5, eng: 6, ai: 3, agility: 5, sec: 8, fe: 5, lang: 4 },
     passiveId: 'ha_shield',
     emblem: 'orb',
     skill: {
@@ -390,7 +576,7 @@ export const BUILTIN_HEROES = [
     rarity: 'gray',
     element: 'arch',
     role: '基础输出',
-    domains: { algo: 5, sys: 4, eng: 6, ai: 4, agility: 5 },
+    domains: { algo: 5, sys: 4, eng: 6, ai: 4, agility: 5, sec: 4, fe: 5, lang: 5 },
     passiveId: 'ddl_berserk',
     emblem: 'spark',
     skill: {
@@ -408,7 +594,7 @@ export const BUILTIN_HEROES = [
     rarity: 'gray',
     element: 'ai',
     role: '算力突刺',
-    domains: { algo: 4, sys: 3, eng: 5, ai: 7, agility: 6 },
+    domains: { algo: 4, sys: 3, eng: 5, ai: 7, agility: 6, sec: 3, fe: 6, lang: 4 },
     passiveId: 'memory_leak',
     emblem: 'spear',
     skill: {
@@ -426,7 +612,7 @@ export const HERO_MAP = Object.fromEntries(BUILTIN_HEROES.map((h) => [h.id, h]))
 
 export function buildCustomHeroDef(input, idOverride) {
   const rarity = normalizeRarity(input.rarity, 'gold');
-  const element = ['kernel', 'algo', 'arch', 'ai'].includes(input.element) ? input.element : 'algo';
+  const element = ELEMENTS[input.element] ? input.element : 'algo';
   const skillType = SKILL_TEMPLATES[input.skillType] ? input.skillType : 'crit_execute';
   const tplSkill = SKILL_TEMPLATES[skillType];
   const passiveId = PASSIVE_DEFS[input.passiveId] ? input.passiveId : 'multithread';
@@ -440,7 +626,7 @@ export function buildCustomHeroDef(input, idOverride) {
     rarity,
     element,
     role: String(input.role || '好友定制').slice(0, 20),
-    domains: input.domains || { algo: 7, sys: 7, eng: 7, ai: 7, agility: 7 },
+    domains: input.domains || { algo: 7, sys: 7, eng: 7, ai: 7, agility: 7, sec: 7, fe: 7, lang: 7 },
     passiveId,
     emblem,
     isCustom: true,
